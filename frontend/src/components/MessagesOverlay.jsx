@@ -49,6 +49,9 @@ function randomPositions(n){
 export default function MessagesOverlay(){
   const [messages, setMessages] = useState([])
   const [openIndex, setOpenIndex] = useState(null)
+  const [popupPos, setPopupPos] = useState({x:0,y:0})
+  const [isClosing, setIsClosing] = useState(false)
+  const [pulse, setPulse] = useState(false)
   const positions = useRef([])
   const velocity = useRef([])
   const rafRef = useRef(null)
@@ -185,6 +188,37 @@ export default function MessagesOverlay(){
     return ()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current) }
   },[])
 
+  // compute popup position whenever openIndex changes
+  useEffect(()=>{
+    if(openIndex == null) return
+    const compute = ()=>{
+      const p = positions.current[openIndex] || {x:40,y:80}
+      const w = window.innerWidth
+      const h = window.innerHeight
+      const PAD = 12
+      const MAX_W = 260
+      const MAX_H = 220
+      let x = Math.round(p.x)
+      let y = Math.round(p.y) + 44
+      if(x + MAX_W + PAD > w) x = Math.max(PAD, w - MAX_W - PAD)
+      if(x < PAD) x = PAD
+      if(y + MAX_H + PAD > h) y = Math.max(PAD, h - MAX_H - PAD)
+      if(y < PAD) y = PAD
+      setPopupPos({x,y})
+    }
+    compute()
+    window.addEventListener('resize', compute)
+    return ()=> window.removeEventListener('resize', compute)
+  },[openIndex])
+
+  // pulse glow while popup is open
+  useEffect(()=>{
+    if(openIndex == null){ setPulse(false); return }
+    setPulse(true)
+    const id = setInterval(()=> setPulse(p => !p), 900)
+    return ()=> clearInterval(id)
+  },[openIndex])
+
   if(messages.length===0) return null
 
   function handleOpen(i){
@@ -198,25 +232,34 @@ export default function MessagesOverlay(){
       if(!savedVel.current[i]) savedVel.current[i] = {vx:(Math.random()-0.5)*0.5, vy:(Math.random()-0.5)*0.5}
       velocity.current[i] = {vx:0,vy:0}
     }
+    setIsClosing(false)
     setOpenIndex(i)
+    // popup position will be computed in effect when `openIndex` changes
   }
 
   function handleClose(){
-    // restore previously saved velocity
-    if(openIndex != null){
-      const sv = savedVel.current[openIndex]
-      // if no saved velocity or it's nearly zero, give a small random escape velocity
+    // animate out first, then restore and close
+    if(openIndex == null) return
+    const idx = openIndex
+    setIsClosing(true)
+    const DURATION = 220
+    setTimeout(()=>{
+      // restore previously saved velocity
+      const sv = savedVel.current[idx]
       if(!sv || (Math.hypot(sv.vx||0, sv.vy||0) < 0.05)){
         const angle = Math.random() * Math.PI * 2
         const speed = 0.25 + Math.random() * 0.6
-        velocity.current[openIndex] = {vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed}
+        velocity.current[idx] = {vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed}
       } else {
-        velocity.current[openIndex] = {...sv}
+        velocity.current[idx] = {...sv}
       }
-      savedVel.current[openIndex] = null
-    }
-    setOpenIndex(null)
+      savedVel.current[idx] = null
+      setOpenIndex(null)
+      setIsClosing(false)
+    }, DURATION)
   }
+
+
 
   return (
     <div aria-hidden style={{position:'fixed',inset:0,pointerEvents:'none'}}>
@@ -229,22 +272,42 @@ export default function MessagesOverlay(){
               <span style={{fontSize:14,color:'var(--white)'}}>💬</span>
             </div>
           </button>
-          {openIndex===i && (
-            <div onClick={handleClose} style={{marginTop:8,maxWidth:260,background:'rgba(7,16,32,0.95)',color:'var(--white)',padding:10,borderRadius:10,boxShadow:'0 10px 30px rgba(0,0,0,0.6)',cursor:'pointer'}}>
-              <div style={{fontSize:13,color:'var(--muted)',marginBottom:6}}>{
-                // extract a simple name: prefer text inside ']' then before '<' or ':'
-                (function(){
-                  const part = m.split('] ')[1] || 'Message'
-                  const beforeLt = part.split('<')[0]
-                  const beforeColon = beforeLt.split(':')[0]
-                  return beforeColon.trim()
-                })()
-              }</div>
-              <div style={{fontSize:14,lineHeight:1.4}}>{m.split(': ').slice(1).join(': ')}</div>
-            </div>
-          )}
+          {null}
         </div>
       )})}
+      {openIndex != null && (() => {
+        const m = messages[openIndex] || ''
+        const part = (m.split('] ')[1] || 'Message')
+        const beforeLt = part.split('<')[0]
+        const beforeColon = beforeLt.split(':')[0]
+        const title = beforeColon.trim()
+        return (
+          <div onClick={handleClose} style={{
+            position:'fixed',
+            left:popupPos.x,
+            top:popupPos.y,
+            zIndex:9999,
+            pointerEvents:'auto',
+            maxWidth:260,
+            background:'rgba(7,16,32,0.95)',
+            color:'var(--white)',
+            padding:10,
+            borderRadius:10,
+            boxShadow:'0 10px 30px rgba(0,0,0,0.6)',
+            cursor:'pointer',
+            transition:'opacity 320ms cubic-bezier(.2,.9,.2,1), transform 320ms cubic-bezier(.2,.9,.2,1), filter 320ms cubic-bezier(.2,.9,.2,1), box-shadow 900ms ease-in-out',
+            opacity: isClosing ? 0 : 1,
+            transform: isClosing ? 'translateY(-30px) scale(0.6) rotate(-8deg)' : (pulse? 'translateY(0) scale(1.02) rotate(0deg)' : 'translateY(0) scale(1) rotate(0deg)'),
+            filter: isClosing ? 'blur(6px) brightness(1.2) saturate(0.6)' : 'blur(0px) brightness(1) saturate(1)',
+            boxShadow: pulse && !isClosing ? '0 6px 28px rgba(120,180,255,0.18), 0 0 32px rgba(120,180,255,0.12) inset' : '0 10px 30px rgba(0,0,0,0.6)'
+          }}>
+            <div style={{fontSize:13,color:'var(--muted)',marginBottom:6}}>{title}</div>
+            <div style={{fontSize:14,lineHeight:1.4}}>{m.split(': ').slice(1).join(': ')}</div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
+
+

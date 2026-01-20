@@ -14,12 +14,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('framer-motion')) {
-              return 'vendor_react'
-            }
-            return 'vendor'
-          }
+          if (!id.includes('node_modules')) return undefined
+          // match specific packages to avoid accidental overlaps that create circular imports
+          if (/node_modules[\\/](react|react-dom|framer-motion)/.test(id)) return 'vendor_react'
+          return 'vendor'
         }
       }
     }
