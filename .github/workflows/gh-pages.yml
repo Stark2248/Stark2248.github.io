@@ -28,9 +28,16 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
-      - name: Ensure docs exists and disable Jekyll
+      - name: Copy build to docs and disable Jekyll
         run: |
-          echo "Listing docs/ contents"
+          echo "Listing frontend/dist before copy"
+          ls -la ./frontend/dist || true
+          echo "Removing existing docs/ and recreating"
+          rm -rf ./docs || true
+          mkdir -p ./docs
+          echo "Copying frontend/dist -> docs/"
+          cp -r ./frontend/dist/* ./docs/
+          echo "Listing docs/ contents after copy"
           ls -la ./docs || true
           # prevent GitHub Pages from running Jekyll (useful for SPA/static sites)
           touch ./docs/.nojekyll
