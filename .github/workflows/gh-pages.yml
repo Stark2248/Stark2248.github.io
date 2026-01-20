@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - main
 
 jobs:
   build-and-deploy:
@@ -51,10 +52,10 @@ jobs:
           # prevent GitHub Pages from running Jekyll (useful for SPA/static sites)
           touch ./docs/.nojekyll
 
-      - name: Deploy to GitHub Pages (publish to master branch)
+      - name: Deploy to GitHub Pages (publish to gh-pages branch)
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
-          publish_branch: master
+          publish_branch: gh-pages
           commit_message: "pages: publish [skip ci]"
