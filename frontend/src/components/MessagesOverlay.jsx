@@ -1,4 +1,5 @@
 import React, {useEffect, useState, useRef} from 'react'
+import supabase from '../supabaseClient'
 
 function randomPositions(n){
   const w = window.innerWidth
@@ -63,9 +64,9 @@ export default function MessagesOverlay(){
     const MAX_SPEED = 1.4
     async function load(){
       try{
-        const res = await fetch('/api/contact')
-        const data = await res.json()
-        const msgs = data.messages || []
+        const { data, error } = await supabase.from('messages').select('name,message,created_at').order('created_at', { ascending: false })
+        if(error) throw error
+        const msgs = (data || []).map(d => `[${d.created_at}] ${d.name}: ${d.message}`)
         setMessages(msgs)
         positions.current = randomPositions(msgs.length)
         // seed velocities using angle+speed to guarantee directional movement
@@ -75,7 +76,7 @@ export default function MessagesOverlay(){
           return { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed }
         })
       }catch(e){
-        // ignore
+        console.warn('Failed to load messages from Supabase', e)
       }
     }
     load()
