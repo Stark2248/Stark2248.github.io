@@ -33,24 +33,13 @@ jobs:
 
       - name: Prepare docs and disable Jekyll
         run: |
-          echo "Listing frontend/dist before copy"
-          ls -la ./frontend/dist || echo "frontend/dist does not exist"
-          echo "Listing repo/docs before any changes"
-          ls -la ./docs || echo "./docs does not exist yet"
-
-          # If build produced frontend/dist (common when outDir is frontend/dist), copy it.
+          # Copy if Vite wrote to frontend/dist, otherwise assume Vite wrote to ../docs
           if [ -d "./frontend/dist" ]; then
-            echo "Found ./frontend/dist — replacing ./docs with its contents"
             rm -rf ./docs || true
             mkdir -p ./docs
             cp -r ./frontend/dist/* ./docs/
-          else
-            echo "No ./frontend/dist found — assuming Vite wrote to ../docs (repo root). Leaving ./docs as-is."
           fi
-
-          echo "Listing docs/ contents after preparation"
-          ls -la ./docs || true
-          # prevent GitHub Pages from running Jekyll (useful for SPA/static sites)
+          # prevent GitHub Pages from running Jekyll
           touch ./docs/.nojekyll
 
       - name: Deploy to GitHub Pages (publish to gh-pages branch)
