@@ -7,6 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
+    if: "!contains(github.event.head_commit.message || '', '[skip ci]')"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -50,8 +51,10 @@ jobs:
           # prevent GitHub Pages from running Jekyll (useful for SPA/static sites)
           touch ./docs/.nojekyll
 
-      - name: Deploy to GitHub Pages (gh-pages branch)
+      - name: Deploy to GitHub Pages (publish to master branch)
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
+          publish_branch: master
+          commit_message: "pages: publish [skip ci]"
