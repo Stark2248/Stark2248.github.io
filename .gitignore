@@ -40,4 +40,5 @@ coverage/
 # temp
 *.tmp
 *.temp
+docs/
 
